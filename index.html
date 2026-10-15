@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hostel Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--text:#1d2433;--muted:#6b7385;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--line:#e3e6ee}
+@media (prefers-color-scheme:dark){:root{--bg:#10131a;--card:#1a1f2b;--text:#e8ebf2;--muted:#9099ad;--line:#2b3242}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:900px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h1,h2{margin:0 0 10px}h1{font-size:20px}h2{font-size:17px}
+input,select{width:100%;padding:10px;margin:4px 0;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:15px}
+button{padding:9px 14px;border:0;border-radius:8px;background:var(--pri);color:#fff;font-size:14px;cursor:pointer}
+button.g{background:var(--ok)}button.r{background:var(--bad)}button.l{background:var(--line);color:var(--text)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>*{flex:1;min-width:120px}.row>button{flex:0 0 auto}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{flex:1;background:var(--card);color:var(--text);border:1px solid var(--line)}
+.tabs button.on{background:var(--pri);color:#fff}
+.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.item:last-child{border:0}.muted{color:var(--muted);font-size:13px}
+.tag{padding:2px 8px;border-radius:99px;font-size:12px;color:#fff}.tag.p{background:var(--bad)}.tag.d{background:var(--ok)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.big{font-size:22px;font-weight:700;color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">Loading...</div>
+<script>
+const SUPABASE_URL = "https://gksshbrrlkhiuxedgahw.supabase.co";
+const SUPABASE_KEY = "sb_publishable_97rSi16zxVjtkuhjopOyeg_BaSevqH_";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const app = document.getElementById("app");
+let hostel = null, students = [], dues = [], tab = "pending", month = new Date().toISOString().slice(0,7);
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const val = id => document.getElementById(id).value.trim();
+
+function waLink(phone, text){
+  let p = String(phone||"").replace(/\D/g,"");
+  if(p.startsWith("0")) p = "92" + p.slice(1); // Pakistan numbers; change 92 for other countries
+  return "https://wa.me/" + p + "?text=" + encodeURIComponent(text);
+}
+
+async function start(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) return showAuth();
+  const { data } = await sb.from("hostels").select("*").limit(1);
+  hostel = data && data[0];
+  if(!hostel) return showSetup();
+  await load(); render();
+}
+
+function showAuth(msg=""){
+  app.innerHTML = `<div class="card" style="max-width:400px;margin:40px auto">
+  <h1>Hostel Manager</h1><p class="muted">Login or create your hostel account</p>
+  <input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password (min 6 characters)">
+  <p style="color:var(--bad)">${esc(msg)}</p>
+  <div class="row"><button onclick="login()">Login</button><button class="l" onclick="signup()">Sign up</button></div></div>`;
+}
+async function login(){
+  const { error } = await sb.auth.signInWithPassword({ email:val("em"), password:val("pw") });
+  error ? showAuth(error.message) : start();
+}
+async function signup(){
+  const { data, error } = await sb.auth.signUp({ email:val("em"), password:val("pw") });
+  if(error) return showAuth(error.message);
+  data.session ? start() : showAuth("Account created. Now press Login.");
+}
+function showSetup(){
+  app.innerHTML = `<div class="card" style="max-width:400px;margin:40px auto"><h1>Name your hostel</h1>
+  <input id="hn" placeholder="Hostel name"><br><br><button onclick="createHostel()">Create</button></div>`;
+}
+async function createHostel(){
+  const name = val("hn"); if(!name) return;
+  const { error } = await sb.from("hostels").insert({ name });
+  if(error) return alert(error.message);
+  start();
+}
+async function logout(){ await sb.auth.signOut(); hostel=null; showAuth(); }
+
+async function load(){
+  const s = await sb.from("students").select("*").order("name");
+  students = s.data || [];
+  const d = await sb.from("dues").select("*, students(name,phone,room)").order("month",{ascending:false});
+  dues = d.data || [];
+}
+
+function render(){
+  const pend = dues.filter(d=>!d.paid);
+  const total = pend.reduce((a,d)=>a+Number(d.amount),0);
+  app.innerHTML = `<div class="top"><h1>${esc(hostel.name)}</h1><button class="l" onclick="logout()">Logout</button></div>
+  <div class="card"><div class="muted">Total pending</div><div class="big">Rs ${total.toLocaleString()}</div>
+  <div class="muted">${pend.length} unpaid dues, ${students.filter(s=>s.active).length} active students</div></div>
+  <div class="tabs">
+    <button class="${tab=="pending"?"on":""}" onclick="tab='pending';render()">Pending</button>
+    <button class="${tab=="students"?"on":""}" onclick="tab='students';render()">Students</button>
+    <button class="${tab=="all"?"on":""}" onclick="tab='all';render()">All dues</button></div>
+  <div id="body"></div>`;
+  const b = document.getElementById("body");
+  if(tab=="students") b.innerHTML = studentsView();
+  else b.innerHTML = duesView(tab=="pending");
+}
+
+function studentsView(){
+  return `<div class="card"><h2>Add student</h2>
+  <input id="sn" placeholder="Name"><input id="sp" placeholder="WhatsApp number (e.g. 03001234567)">
+  <div class="row"><input id="sr" placeholder="Room"><input id="sf" type="number" placeholder="Monthly fee"></div>
+  <br><button onclick="addStudent()">Add</button></div>
+  <div class="card"><h2>Students (${students.length})</h2>
+  ${students.map(s=>`<div class="item"><div><b>${esc(s.name)}</b> ${s.active?"":'<span class="muted">(left)</span>'}
+  <div class="muted">Room ${esc(s.room)} | ${esc(s.phone)} | Rs ${s.monthly_fee}</div></div>
+  <div class="row"><button class="l" onclick="toggleActive('${s.id}',${!s.active})">${s.active?"Mark left":"Reactivate"}</button>
+  <button class="r" onclick="delStudent('${s.id}')">Delete</button></div></div>`).join("") || '<p class="muted">No students yet.</p>'}</div>`;
+}
+async function addStudent(){
+  const name = val("sn"); if(!name) return alert("Enter a name");
+  const { error } = await sb.from("students").insert({ hostel_id:hostel.id, name, phone:val("sp"), room:val("sr"), monthly_fee:Number(val("sf"))||0 });
+  if(error) return alert(error.message);
+  await load(); render();
+}
+async function toggleActive(id, v){ await sb.from("students").update({active:v}).eq("id",id); await load(); render(); }
+async function delStudent(id){ if(!confirm("Delete this student and all their dues?")) return; await sb.from("students").delete().eq("id",id); await load(); render(); }
+
+function duesView(onlyPending){
+  const list = onlyPending ? dues.filter(d=>!d.paid) : dues;
+  return `<div class="card"><h2>Generate monthly dues</h2><div class="row">
+  <input id="mo" type="month" value="${month}"><button onclick="genDues()">Create for all active students</button></div></div>
+  <div class="card"><h2>${onlyPending?"Pending dues":"All dues"} (${list.length})</h2>
+  ${list.map(d=>`<div class="item"><div><b>${esc(d.students?.name)}</b> <span class="tag ${d.paid?"d":"p"}">${d.paid?"Paid":"Pending"}</span>
+  <div class="muted">${d.month} | Room ${esc(d.students?.room)} | Rs ${d.amount}</div></div>
+  <div class="row">${d.paid?`<button class="l" onclick="setPaid('${d.id}',false)">Undo</button>`:
+  `<button class="g" onclick="setPaid('${d.id}',true)">Mark paid</button>
+  <button onclick="remind('${d.id}')">WhatsApp</button>`}</div></div>`).join("") || '<p class="muted">Nothing here.</p>'}</div>`;
+}
+async function genDues(){
+  month = val("mo"); if(!month) return;
+  const have = new Set(dues.filter(d=>d.month==month).map(d=>d.student_id));
+  const rows = students.filter(s=>s.active && s.monthly_fee>0 && !have.has(s.id))
+    .map(s=>({ hostel_id:hostel.id, student_id:s.id, month, amount:s.monthly_fee }));
+  if(!rows.length) return alert("No new dues to create for " + month);
+  const { error } = await sb.from("dues").insert(rows);
+  if(error) return alert(error.message);
+  await load(); render();
+}
+async function setPaid(id, v){
+  await sb.from("dues").update({ paid:v, paid_on: v ? new Date().toISOString().slice(0,10) : null }).eq("id",id);
+  await load(); render();
+}
+function remind(id){
+  const d = dues.find(x=>x.id==id);
+  if(!d.students?.phone) return alert("No phone number saved for this student");
+  const msg = `Assalam o Alaikum ${d.students.name}, this is a reminder from ${hostel.name}. Your hostel fee of Rs ${d.amount} for ${d.month} is pending. Please pay at your earliest. Thank you.`;
+  window.open(waLink(d.students.phone, msg), "_blank");
+}
+start();
+</script>
+</body>
+</html>
