@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hostel Manager</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
 :root{--bg:#f5f6fa;--card:#fff;--text:#1d2433;--muted:#6b7385;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--line:#e3e6ee}
@@ -157,6 +160,7 @@ function remind(id){
   window.open(waLink(d.students.phone, msg), "_blank");
 }
 start();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 </script>
 </body>
 </html>
