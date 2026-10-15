@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hostel Manager - Admin</title>
+<meta name="robots" content="noindex">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--text:#1d2433;--muted:#6b7385;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--warn:#d97706;--line:#e3e6ee}
+@media (prefers-color-scheme:dark){:root{--bg:#10131a;--card:#1a1f2b;--text:#e8ebf2;--muted:#9099ad;--line:#2b3242}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:900px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+h1{font-size:20px;margin:0}
+input{width:100%;padding:10px;margin:4px 0;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:15px}
+button{padding:8px 12px;border:0;border-radius:8px;background:var(--pri);color:#fff;font-size:13px;cursor:pointer}
+button.l{background:var(--line);color:var(--text)}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.stats div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stats b{display:block;font-size:22px}.muted{color:var(--muted);font-size:13px}
+.tag{padding:2px 8px;border-radius:99px;font-size:12px;color:#fff}
+.a{background:var(--ok)}.e{background:var(--bad)}.s{background:var(--warn)}
+.h{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+@media(max-width:500px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">Loading...</div>
+<script>
+const sb = supabase.createClient("https://gksshbrrlkhiuxedgahw.supabase.co", "sb_publishable_97rSi16zxVjtkuhjopOyeg_BaSevqH_");
+const app = document.getElementById("app");
+let rows = [], q = "";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const val = id => document.getElementById(id).value.trim();
+const fmt = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const today = () => fmt(new Date());
+
+async function start(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session) return showAuth();
+  const { data:ok } = await sb.rpc("is_admin");
+  if(!ok) return app.innerHTML = `<div class="card"><h1>Not an admin</h1><p class="muted">This account does not have admin access.</p><button class="l" onclick="logout()">Logout</button></div>`;
+  await load(); render();
+}
+function showAuth(msg=""){
+  app.innerHTML = `<div class="card" style="max-width:400px;margin:40px auto"><h1>Admin login</h1><br>
+  <input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password">
+  <p style="color:var(--bad)">${esc(msg)}</p><button onclick="login()">Login</button></div>`;
+}
+async function login(){
+  const { error } = await sb.auth.signInWithPassword({ email:val("em"), password:val("pw") });
+  error ? showAuth(error.message) : start();
+}
+async function logout(){ await sb.auth.signOut(); showAuth(); }
+async function load(){ const { data, error } = await sb.rpc("admin_hostels"); if(error) alert(error.message); rows = data || []; }
+
+function status(r){
+  const t = today();
+  if(!r.paid_until || r.paid_until < t) return ["Expired","e"];
+  const days = Math.ceil((new Date(r.paid_until) - new Date(t)) / 86400000);
+  return days <= 7 ? ["Ends in "+days+"d","s"] : ["Active","a"];
+}
+function render(){
+  const t = today();
+  const exp = rows.filter(r=>!r.paid_until || r.paid_until < t).length;
+  const soon = rows.filter(r=>status(r)[1]=="s").length;
+  const list = rows.filter(r=>(r.name+" "+r.owner_email).toLowerCase().includes(q.toLowerCase()));
+  app.innerHTML = `<div class="top"><h1>Admin</h1><button class="l" onclick="logout()">Logout</button></div>
+  <div class="stats"><div><b>${rows.length}</b>Hostels</div><div><b>${rows.length-exp}</b>Active</div>
+  <div><b>${soon}</b>Ending soon</div><div><b>${exp}</b>Expired</div></div>
+  <input id="sq" placeholder="Search hostel or email" value="${esc(q)}" oninput="q=this.value;renderList()">
+  <div id="list"></div>`;
+  renderList();
+}
+function renderList(){
+  const list = rows.filter(r=>(r.name+" "+r.owner_email).toLowerCase().includes(q.toLowerCase()));
+  document.getElementById("list").innerHTML = list.map(r=>{
+    const [label,cls] = status(r);
+    return `<div class="card"><div class="h"><div><b>${esc(r.name)}</b> <span class="tag ${cls}">${label}</span>
+    <div class="muted">${esc(r.owner_email)} | joined ${r.created_at.slice(0,10)}</div>
+    <div class="muted">${r.students} students | Rs ${Number(r.pending).toLocaleString()} pending | paid until <b>${r.paid_until||"-"}</b></div>
+    ${r.note?`<div class="muted">Note: ${esc(r.note)}</div>`:""}</div></div><br>
+    <div class="row"><button onclick="extend('${r.hostel_id}',1)">+1 month</button><button onclick="extend('${r.hostel_id}',3)">+3 months</button>
+    <button onclick="extend('${r.hostel_id}',12)">+12 months</button>
+    <input type="date" id="d_${r.hostel_id}" style="width:150px"><button class="l" onclick="setDate('${r.hostel_id}')">Set date</button>
+    <button class="l" onclick="setNote('${r.hostel_id}')">Note</button></div></div>`;
+  }).join("") || '<p class="muted">No hostels found.</p>';
+}
+async function save(id, date, note){
+  const { error } = await sb.rpc("admin_set_paid", { h:id, new_date:date, n:note });
+  if(error) return alert(error.message);
+  await load(); render();
+}
+function extend(id, months){
+  const r = rows.find(x=>x.hostel_id==id);
+  const base = (r.paid_until && r.paid_until > today()) ? new Date(r.paid_until+"T00:00:00") : new Date();
+  base.setMonth(base.getMonth() + months);
+  if(confirm("Set "+r.name+" paid until "+fmt(base)+"?")) save(id, fmt(base), null);
+}
+function setDate(id){ const d = document.getElementById("d_"+id).value; if(!d) return alert("Pick a date first"); save(id, d, null); }
+function setNote(id){
+  const r = rows.find(x=>x.hostel_id==id);
+  const n = prompt("Note (e.g. paid via JazzCash, ref 12345):", r.note||""); if(n===null) return;
+  save(id, r.paid_until || today(), n);
+}
+start();
+</script>
+</body>
+</html>
