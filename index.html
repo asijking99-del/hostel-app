@@ -21,7 +21,7 @@ button{padding:9px 14px;border:0;border-radius:8px;background:var(--pri);color:#
 button.g{background:var(--ok)}button.r{background:var(--bad)}button.l{background:var(--line);color:var(--text)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .row>*{flex:1;min-width:120px}.row>button{flex:0 0 auto}
-.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{flex:1;background:var(--card);color:var(--text);border:1px solid var(--line)}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}.tabs button{flex:1 0 auto;background:var(--card);color:var(--text);border:1px solid var(--line)}
 .tabs button.on{background:var(--pri);color:#fff}
 .item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .item:last-child{border:0}.muted{color:var(--muted);font-size:13px}
@@ -35,12 +35,12 @@ button.g{background:var(--ok)}button.r{background:var(--bad)}button.l{background
 <script>
 const SUPABASE_URL = "https://gksshbrrlkhiuxedgahw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_97rSi16zxVjtkuhjopOyeg_BaSevqH_";
-const ADMIN_WHATSAPP = "923170989491"; // CHANGE: your WhatsApp number, country code first, no + or spaces
-const PRICE_TEXT = "Rs 9,000 per month";  // CHANGE: your price
+const ADMIN_WHATSAPP = "923001234567"; // CHANGE: your WhatsApp number, country code first, no + or spaces
+const PRICE_TEXT = "Rs 2,000 per month";  // CHANGE: your price
 let subUntil = null, locked = false;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const app = document.getElementById("app");
-let hostel = null, students = [], dues = [], tab = "pending", month = new Date().toISOString().slice(0,7);
+let hostel = null, students = [], dues = [], rooms = [], expenses = [], rmonth = new Date().toISOString().slice(0,7), tab = "pending", month = new Date().toISOString().slice(0,7);
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const val = id => document.getElementById(id).value.trim();
@@ -57,10 +57,12 @@ async function start(){
   const { data } = await sb.from("hostels").select("*").limit(1);
   hostel = data && data[0];
   if(!hostel) return showSetup();
+  await loadSub(); await load(); render(); listen();
+}
+async function loadSub(){
   const sub = await sb.from("subscriptions").select("*").eq("hostel_id", hostel.id).maybeSingle();
   subUntil = sub.data ? sub.data.paid_until : null;
   locked = !subUntil || subUntil < new Date().toISOString().slice(0,10);
-  await load(); render();
 }
 function lockMsg(){ alert("Your subscription has expired. Please renew to make changes."); }
 function banner(){
@@ -100,13 +102,15 @@ async function createHostel(){
   if(error) return alert(error.message);
   start();
 }
-async function logout(){ await sb.auth.signOut(); hostel=null; showAuth(); }
+async function logout(){ if(rt){ sb.removeChannel(rt); rt=null; } await sb.auth.signOut(); hostel=null; showAuth(); }
 
 async function load(){
   const s = await sb.from("students").select("*").order("name");
   students = s.data || [];
   const d = await sb.from("dues").select("*, students(name,phone,room)").order("month",{ascending:false});
   dues = d.data || [];
+  const r = await sb.from("rooms").select("*").order("name"); rooms = r.data || [];
+  const e = await sb.from("expenses").select("*").order("spent_on",{ascending:false}); expenses = e.data || [];
 }
 
 function render(){
@@ -118,17 +122,23 @@ function render(){
   <div class="tabs">
     <button class="${tab=="pending"?"on":""}" onclick="tab='pending';render()">Pending</button>
     <button class="${tab=="students"?"on":""}" onclick="tab='students';render()">Students</button>
-    <button class="${tab=="all"?"on":""}" onclick="tab='all';render()">All dues</button></div>
+    <button class="${tab=="all"?"on":""}" onclick="tab='all';render()">All dues</button>
+    <button class="${tab=="rooms"?"on":""}" onclick="tab='rooms';render()">Rooms</button>
+    <button class="${tab=="expenses"?"on":""}" onclick="tab='expenses';render()">Expenses</button>
+    <button class="${tab=="report"?"on":""}" onclick="tab='report';render()">Report</button></div>
   <div id="body"></div>`;
   const b = document.getElementById("body");
   if(tab=="students") b.innerHTML = studentsView();
+  else if(tab=="rooms") b.innerHTML = roomsView();
+  else if(tab=="expenses") b.innerHTML = expensesView();
+  else if(tab=="report") b.innerHTML = reportView();
   else b.innerHTML = duesView(tab=="pending");
 }
 
 function studentsView(){
   return `<div class="card"><h2>Add student</h2>
   <input id="sn" placeholder="Name"><input id="sp" placeholder="WhatsApp number (e.g. 03001234567)">
-  <div class="row"><input id="sr" placeholder="Room"><input id="sf" type="number" placeholder="Monthly fee"></div>
+  <div class="row">${roomField()}<input id="sf" type="number" placeholder="Monthly fee"></div>
   <br><button onclick="addStudent()">Add</button></div>
   <div class="card"><h2>Students (${students.length})</h2>
   ${students.map(s=>`<div class="item"><div><b>${esc(s.name)}</b> ${s.active?"":'<span class="muted">(left)</span>'}
@@ -176,6 +186,84 @@ function remind(id){
   const msg = `Assalam o Alaikum ${d.students.name}, this is a reminder from ${hostel.name}. Your hostel fee of Rs ${d.amount} for ${d.month} is pending. Please pay at your earliest. Thank you.`;
   window.open(waLink(d.students.phone, msg), "_blank");
 }
+const CATS = ["Electricity","Water","Food / Mess","Salaries","Repairs","Internet","Rent","Other"];
+const sum = a => a.reduce((t,x)=>t+Number(x),0);
+const money = n => "Rs " + Number(n).toLocaleString();
+function roomField(){
+  return rooms.length ? `<select id="sr"><option value="">Room (none)</option>${rooms.map(r=>`<option>${esc(r.name)}</option>`).join("")}</select>`
+                      : `<input id="sr" placeholder="Room">`;
+}
+function monthPicker(){ return `<div class="card"><div class="row"><b style="flex:0 0 auto">Month</b><input type="month" value="${rmonth}" onchange="rmonth=this.value||rmonth;render()"></div></div>`; }
+
+function roomsView(){
+  return `<div class="card"><h2>Add room</h2><div class="row"><input id="rn" placeholder="Room name / number"><input id="rc" type="number" placeholder="Beds (capacity)"></div>
+  <br><button onclick="addRoom()">Add room</button></div>
+  <div class="card"><h2>Rooms (${rooms.length})</h2>
+  ${rooms.map(r=>{ const n = students.filter(s=>s.active && s.room==r.name).length;
+    return `<div class="item"><div><b>${esc(r.name)}</b> <span class="tag ${n>=r.capacity?"p":"d"}">${n}/${r.capacity} beds</span>
+    <div class="muted">${students.filter(s=>s.active && s.room==r.name).map(s=>esc(s.name)).join(", ") || "Empty"}</div></div>
+    <button class="r" onclick="delRoom('${r.id}')">Delete</button></div>`; }).join("") || '<p class="muted">No rooms yet.</p>'}</div>`;
+}
+async function addRoom(){
+  if(locked) return lockMsg();
+  const name = val("rn"); if(!name) return alert("Enter a room name");
+  const { error } = await sb.from("rooms").insert({ hostel_id:hostel.id, name, capacity:Number(val("rc"))||1 });
+  if(error) return alert(error.message);
+  await load(); render();
+}
+async function delRoom(id){ if(locked) return lockMsg(); if(!confirm("Delete this room?")) return; await sb.from("rooms").delete().eq("id",id); await load(); render(); }
+
+function expensesView(){
+  const list = expenses.filter(e=>e.spent_on.slice(0,7)==rmonth);
+  return monthPicker() + `<div class="card"><h2>Add expense</h2>
+  <div class="row"><select id="ec">${CATS.map(c=>`<option>${c}</option>`).join("")}</select><input id="ea" type="number" placeholder="Amount"></div>
+  <div class="row"><input id="en" placeholder="Note (optional)"><input id="ed" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+  <br><button onclick="addExpense()">Add expense</button></div>
+  <div class="card"><h2>Expenses: ${money(sum(list.map(e=>e.amount)))}</h2>
+  ${list.map(e=>`<div class="item"><div><b>${esc(e.category)}</b> - ${money(e.amount)}<div class="muted">${e.spent_on} ${esc(e.note)}</div></div>
+  <button class="r" onclick="delExpense('${e.id}')">Delete</button></div>`).join("") || '<p class="muted">No expenses this month.</p>'}</div>`;
+}
+async function addExpense(){
+  if(locked) return lockMsg();
+  const amount = Number(val("ea")); if(!amount) return alert("Enter an amount");
+  const { error } = await sb.from("expenses").insert({ hostel_id:hostel.id, category:val("ec"), amount, note:val("en"), spent_on:val("ed") || new Date().toISOString().slice(0,10) });
+  if(error) return alert(error.message);
+  await load(); render();
+}
+async function delExpense(id){ if(locked) return lockMsg(); if(!confirm("Delete this expense?")) return; await sb.from("expenses").delete().eq("id",id); await load(); render(); }
+
+function reportView(){
+  const md = dues.filter(d=>d.month==rmonth);
+  const collected = sum(dues.filter(d=>d.paid && d.paid_on && d.paid_on.slice(0,7)==rmonth).map(d=>d.amount));
+  const exp = expenses.filter(e=>e.spent_on.slice(0,7)==rmonth);
+  const spent = sum(exp.map(e=>e.amount)), net = collected - spent;
+  const by = {}; exp.forEach(e=>by[e.category]=(by[e.category]||0)+Number(e.amount));
+  return monthPicker() + `<div class="card"><h2>Report for ${rmonth}</h2>
+  <div class="item"><span>Fees billed</span><b>${money(sum(md.map(d=>d.amount)))}</b></div>
+  <div class="item"><span>Fees collected (paid this month)</span><b style="color:var(--ok)">${money(collected)}</b></div>
+  <div class="item"><span>Still pending (this month's dues)</span><b style="color:var(--bad)">${money(sum(md.filter(d=>!d.paid).map(d=>d.amount)))}</b></div>
+  <div class="item"><span>Expenses</span><b>${money(spent)}</b></div>
+  <div class="item"><span><b>Net profit</b></span><b style="color:${net>=0?"var(--ok)":"var(--bad)"}">${money(net)}</b></div></div>
+  <div class="card"><h2>Expenses by category</h2>${Object.entries(by).map(([k,v])=>`<div class="item"><span>${esc(k)}</span><b>${money(v)}</b></div>`).join("") || '<p class="muted">No expenses.</p>'}</div>`;
+}
+
+// ---- live updates: no reload needed ----
+let rt = null, tmr = null, pend = false;
+const isTyping = () => ["INPUT","SELECT"].includes(document.activeElement && document.activeElement.tagName);
+async function refresh(){
+  if(!hostel) return;
+  await loadSub(); await load();
+  if(isTyping()){ pend = true; return; }
+  render();
+}
+function listen(){
+  if(rt) return;
+  rt = sb.channel("live").on("postgres_changes", { event:"*", schema:"public" }, () => { clearTimeout(tmr); tmr = setTimeout(refresh, 500); }).subscribe();
+}
+document.addEventListener("visibilitychange", () => { if(!document.hidden) refresh(); });
+window.addEventListener("online", refresh);
+document.addEventListener("focusout", () => setTimeout(() => { if(pend && !isTyping()){ pend = false; render(); } }, 300));
+
 start();
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 </script>

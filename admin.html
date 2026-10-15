@@ -108,6 +108,13 @@ function setNote(id){
   save(id, r.paid_until || today(), n);
 }
 start();
+setInterval(async () => {
+  if(document.hidden || !document.getElementById("list")) return;
+  const el = document.activeElement;
+  if(el && el.tagName == "INPUT" && el.id != "sq") return;
+  await load();
+  el && el.id == "sq" ? renderList() : render();
+}, 30000);
 </script>
 </body>
 </html>
