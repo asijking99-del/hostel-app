@@ -162,7 +162,7 @@ function duesView(onlyPending){
   <div class="card"><h2>${onlyPending?"Pending dues":"All dues"} (${list.length})</h2>
   ${list.map(d=>`<div class="item"><div><b>${esc(d.students?.name)}</b> <span class="tag ${d.paid?"d":"p"}">${d.paid?"Paid":"Pending"}</span>
   <div class="muted">${d.month} | Room ${esc(d.students?.room)} | Rs ${d.amount}</div></div>
-  <div class="row">${d.paid?`<button class="l" onclick="setPaid('${d.id}',false)">Undo</button>`:
+  <div class="row">${d.paid?`<button onclick="receipt('${d.id}')">Receipt</button><button class="l" onclick="setPaid('${d.id}',false)">Undo</button>`:
   `<button class="g" onclick="setPaid('${d.id}',true)">Mark paid</button>
   <button onclick="remind('${d.id}')">WhatsApp</button>`}</div></div>`).join("") || '<p class="muted">Nothing here.</p>'}</div>`;
 }
@@ -177,8 +177,15 @@ async function genDues(){ if(locked) return lockMsg();
   await load(); render();
 }
 async function setPaid(id, v){ if(locked) return lockMsg();
+  if(v && confirm("Mark as paid and send a WhatsApp receipt?")) receipt(id, new Date().toISOString().slice(0,10));
   await sb.from("dues").update({ paid:v, paid_on: v ? new Date().toISOString().slice(0,10) : null }).eq("id",id);
   await load(); render();
+}
+function receipt(id, date){
+  const d = dues.find(x=>x.id==id);
+  if(!d.students?.phone) return alert("No phone number saved for this student");
+  const msg = `*PAYMENT RECEIPT*\n${hostel.name}\n\nReceipt no: R-${d.id.slice(0,6).toUpperCase()}\nName: ${d.students.name}\nRoom: ${d.students.room || "-"}\nFor month: ${d.month}\nAmount received: Rs ${Number(d.amount).toLocaleString()}\nDate: ${date || d.paid_on}\nStatus: PAID\n\nThank you!`;
+  window.open(waLink(d.students.phone, msg), "_blank");
 }
 function remind(id){
   const d = dues.find(x=>x.id==id);
