@@ -35,6 +35,9 @@ button.g{background:var(--ok)}button.r{background:var(--bad)}button.l{background
 <script>
 const SUPABASE_URL = "https://gksshbrrlkhiuxedgahw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_97rSi16zxVjtkuhjopOyeg_BaSevqH_";
+const ADMIN_WHATSAPP = "923001234567"; // CHANGE: your WhatsApp number, country code first, no + or spaces
+const PRICE_TEXT = "Rs 2,000 per month";  // CHANGE: your price
+let subUntil = null, locked = false;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const app = document.getElementById("app");
 let hostel = null, students = [], dues = [], tab = "pending", month = new Date().toISOString().slice(0,7);
@@ -54,7 +57,21 @@ async function start(){
   const { data } = await sb.from("hostels").select("*").limit(1);
   hostel = data && data[0];
   if(!hostel) return showSetup();
+  const sub = await sb.from("subscriptions").select("*").eq("hostel_id", hostel.id).maybeSingle();
+  subUntil = sub.data ? sub.data.paid_until : null;
+  locked = !subUntil || subUntil < new Date().toISOString().slice(0,10);
   await load(); render();
+}
+function lockMsg(){ alert("Your subscription has expired. Please renew to make changes."); }
+function banner(){
+  if(!subUntil) return "";
+  const days = Math.ceil((new Date(subUntil) - new Date(new Date().toISOString().slice(0,10))) / 86400000);
+  const link = waLink(ADMIN_WHATSAPP, "Hello, I want to renew my hostel subscription for " + hostel.name + ".");
+  if(locked) return `<div class="card" style="border-color:var(--bad)"><b style="color:var(--bad)">Subscription expired on ${subUntil}.</b>
+  <div class="muted">You can view your data but cannot make changes. Renew: ${esc(PRICE_TEXT)}.</div><br><a href="${link}" target="_blank"><button>Renew on WhatsApp</button></a></div>`;
+  if(days <= 7) return `<div class="card" style="border-color:var(--bad)"><b>${days} day(s) left</b> (until ${subUntil}).
+  <a href="${link}" target="_blank">Renew on WhatsApp</a> | ${esc(PRICE_TEXT)}</div>`;
+  return `<div class="muted" style="margin-bottom:8px">Subscription active until ${subUntil} (${days} days left)</div>`;
 }
 
 function showAuth(msg=""){
@@ -96,7 +113,7 @@ function render(){
   const pend = dues.filter(d=>!d.paid);
   const total = pend.reduce((a,d)=>a+Number(d.amount),0);
   app.innerHTML = `<div class="top"><h1>${esc(hostel.name)}</h1><button class="l" onclick="logout()">Logout</button></div>
-  <div class="card"><div class="muted">Total pending</div><div class="big">Rs ${total.toLocaleString()}</div>
+  ${banner()}<div class="card"><div class="muted">Total pending</div><div class="big">Rs ${total.toLocaleString()}</div>
   <div class="muted">${pend.length} unpaid dues, ${students.filter(s=>s.active).length} active students</div></div>
   <div class="tabs">
     <button class="${tab=="pending"?"on":""}" onclick="tab='pending';render()">Pending</button>
@@ -119,14 +136,14 @@ function studentsView(){
   <div class="row"><button class="l" onclick="toggleActive('${s.id}',${!s.active})">${s.active?"Mark left":"Reactivate"}</button>
   <button class="r" onclick="delStudent('${s.id}')">Delete</button></div></div>`).join("") || '<p class="muted">No students yet.</p>'}</div>`;
 }
-async function addStudent(){
+async function addStudent(){ if(locked) return lockMsg();
   const name = val("sn"); if(!name) return alert("Enter a name");
   const { error } = await sb.from("students").insert({ hostel_id:hostel.id, name, phone:val("sp"), room:val("sr"), monthly_fee:Number(val("sf"))||0 });
   if(error) return alert(error.message);
   await load(); render();
 }
-async function toggleActive(id, v){ await sb.from("students").update({active:v}).eq("id",id); await load(); render(); }
-async function delStudent(id){ if(!confirm("Delete this student and all their dues?")) return; await sb.from("students").delete().eq("id",id); await load(); render(); }
+async function toggleActive(id, v){ if(locked) return lockMsg(); await sb.from("students").update({active:v}).eq("id",id); await load(); render(); }
+async function delStudent(id){ if(locked) return lockMsg(); if(!confirm("Delete this student and all their dues?")) return; await sb.from("students").delete().eq("id",id); await load(); render(); }
 
 function duesView(onlyPending){
   const list = onlyPending ? dues.filter(d=>!d.paid) : dues;
@@ -139,7 +156,7 @@ function duesView(onlyPending){
   `<button class="g" onclick="setPaid('${d.id}',true)">Mark paid</button>
   <button onclick="remind('${d.id}')">WhatsApp</button>`}</div></div>`).join("") || '<p class="muted">Nothing here.</p>'}</div>`;
 }
-async function genDues(){
+async function genDues(){ if(locked) return lockMsg();
   month = val("mo"); if(!month) return;
   const have = new Set(dues.filter(d=>d.month==month).map(d=>d.student_id));
   const rows = students.filter(s=>s.active && s.monthly_fee>0 && !have.has(s.id))
@@ -149,7 +166,7 @@ async function genDues(){
   if(error) return alert(error.message);
   await load(); render();
 }
-async function setPaid(id, v){
+async function setPaid(id, v){ if(locked) return lockMsg();
   await sb.from("dues").update({ paid:v, paid_on: v ? new Date().toISOString().slice(0,10) : null }).eq("id",id);
   await load(); render();
 }
