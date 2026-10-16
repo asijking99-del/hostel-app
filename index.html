@@ -5,38 +5,77 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hostel Manager</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2563eb">
+<meta name="theme-color" content="#2D4F4A">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
-:root{--bg:#f5f6fa;--card:#fff;--text:#1d2433;--muted:#6b7385;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--line:#e3e6ee}
-@media (prefers-color-scheme:dark){:root{--bg:#10131a;--card:#1a1f2b;--text:#e8ebf2;--muted:#9099ad;--line:#2b3242}}
+:root{--bg:#F2F3F2;--card:#FFFFFF;--text:#1B1F1E;--muted:#68706E;--pri:#2D4F4A;--on:#FFFFFF;--ok:#3E7A5A;--bad:#B3443A;--warn:#A9741A;--line:#E1E4E2;--tint:#E9EEEC}
+@media (prefers-color-scheme:dark){:root{--bg:#101312;--card:#171B1A;--text:#E6E9E7;--muted:#8D9795;--pri:#8FB9AE;--on:#0E1513;--ok:#7DBB98;--bad:#E07F74;--warn:#D9A64E;--line:#262C2B;--tint:#1E2423}}
 *{box-sizing:border-box}
-body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
-.wrap{max-width:900px;margin:0 auto;padding:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
-h1,h2{margin:0 0 10px}h1{font-size:20px}h2{font-size:17px}
-input,select{width:100%;padding:10px;margin:4px 0;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:15px}
-button{padding:9px 14px;border:0;border-radius:8px;background:var(--pri);color:#fff;font-size:14px;cursor:pointer}
-button.g{background:var(--ok)}button.r{background:var(--bad)}button.l{background:var(--line);color:var(--text)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:Manrope,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+h1{font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0}
+h2{font-size:15px;font-weight:700;margin:0 0 10px}
+a{color:var(--pri)}
+.muted{color:var(--muted);font-size:13px}
+:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+input,select{width:100%;height:42px;padding:0 12px;margin:4px 0;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);font:inherit}
+input:focus,select:focus{outline:2px solid var(--pri);outline-offset:-1px;border-color:transparent}
+button{height:36px;padding:0 14px;border:1px solid var(--pri);border-radius:8px;background:var(--pri);color:var(--on);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+button.l{background:transparent;color:var(--text);border-color:var(--line)}
+button.g{background:transparent;color:var(--ok);border-color:var(--ok)}
+button.r{background:transparent;color:var(--bad);border-color:transparent}
+button:active{transform:translateY(1px)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.row>*{flex:1;min-width:120px}.row>button{flex:0 0 auto}
-.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}.tabs button{flex:1 0 auto;background:var(--card);color:var(--text);border:1px solid var(--line)}
-.tabs button.on{background:var(--pri);color:#fff}
-.item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.item:last-child{border:0}.muted{color:var(--muted);font-size:13px}
-.tag{padding:2px 8px;border-radius:99px;font-size:12px;color:#fff}.tag.p{background:var(--bad)}.tag.d{background:var(--ok)}
-.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.big{font-size:22px;font-weight:700;color:var(--bad)}
+.row>*{flex:1;min-width:120px}.row>button{flex:0 0 auto;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.item:last-child{border-bottom:0}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--tint)}
+.tag:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.tag.p,.tag.e{color:var(--bad)}.tag.d,.tag.a{color:var(--ok)}.tag.s{color:var(--warn)}
+
+#app{padding:0}
+.side{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px))}
+.side .brand,.side .foot{display:none}
+.nav{display:flex;flex:1;gap:2px}
+.nav button{flex:1;height:auto;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px;border:0;background:transparent;color:var(--muted);font-size:11px;font-weight:600;border-radius:8px}
+.nav button.on{color:var(--pri);background:var(--tint)}
+.nav svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.main{padding:14px 16px calc(92px + env(safe-area-inset-bottom,0px))}
+.main>*{max-width:760px}
+.mtop{display:flex;align-items:center;gap:10px;margin-bottom:14px}.mtop b{flex:1;font-size:16px}
+.hero{padding:4px 0 18px}
+.hero .lbl{color:var(--muted);font-size:13px;font-weight:600}
+.hero .fig{font-size:clamp(34px,9vw,52px);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin:2px 0 14px}
+.meter{height:6px;background:var(--line);border-radius:99px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--pri);border-radius:99px}
+.hero .sub{display:flex;gap:4px 18px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-top:10px}
+.seg{display:inline-flex;background:var(--tint);border-radius:9px;padding:3px;margin-bottom:14px}
+.seg button{height:30px;border:0;background:transparent;color:var(--muted);border-radius:7px}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 0 0 1px var(--line)}
+@media (prefers-reduced-motion:no-preference){.meter i{transition:width .5s ease}}
+@media (min-width:800px){
+ .side{top:0;right:auto;bottom:auto;width:232px;height:100vh;flex-direction:column;border-top:0;border-right:1px solid var(--line);padding:20px 14px}
+ .side .brand{display:flex;align-items:center;gap:10px;margin:0 6px 24px;font-weight:800;font-size:16px;line-height:1.2}
+ .side .foot{display:block;margin-top:auto}
+ .nav{flex:0 0 auto;flex-direction:column}
+ .nav button{flex-direction:row;gap:12px;font-size:14px;padding:10px 12px;justify-content:flex-start}
+ .main{margin-left:232px;padding:30px 40px}
+ .mtop{display:none}
+}
 </style>
 </head>
 <body>
-<div class="wrap" id="app">Loading...</div>
+<div id="app">Loading...</div>
 <script>
 const SUPABASE_URL = "https://gksshbrrlkhiuxedgahw.supabase.co";
 const SUPABASE_KEY = "sb_publishable_97rSi16zxVjtkuhjopOyeg_BaSevqH_";
-const ADMIN_WHATSAPP = "923170989491"; // CHANGE: your WhatsApp number, country code first, no + or spaces
-const PRICE_TEXT = "Rs 9,000 per month";  // CHANGE: your price
+const ADMIN_WHATSAPP = "923001234567"; // CHANGE: your WhatsApp number, country code first, no + or spaces
+const PRICE_TEXT = "Rs 2,000 per month";  // CHANGE: your price
 let subUntil = null, locked = false;
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const app = document.getElementById("app");
@@ -77,11 +116,11 @@ function banner(){
 }
 
 function showAuth(msg=""){
-  app.innerHTML = `<div class="card" style="max-width:400px;margin:40px auto">
-  <h1>Hostel Manager</h1><p class="muted">Login or create your hostel account</p>
+  app.innerHTML = `<div class="card" style="max-width:400px;width:calc(100% - 32px);margin:48px auto">
+  ${LOGO}<h1 style="margin-top:12px">Hostel Manager</h1><p class="muted">Sign in, or create an account for your hostel.</p>
   <input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password (min 6 characters)">
   <p style="color:var(--bad)">${esc(msg)}</p>
-  <div class="row"><button onclick="login()">Login</button><button class="l" onclick="signup()">Sign up</button></div></div>`;
+  <div class="row"><button onclick="login()">Sign in</button><button class="l" onclick="signup()">Create account</button></div></div>`;
 }
 async function login(){
   const { error } = await sb.auth.signInWithPassword({ email:val("em"), password:val("pw") });
@@ -93,7 +132,7 @@ async function signup(){
   data.session ? start() : showAuth("Account created. Now press Login.");
 }
 function showSetup(){
-  app.innerHTML = `<div class="card" style="max-width:400px;margin:40px auto"><h1>Name your hostel</h1>
+  app.innerHTML = `<div class="card" style="max-width:400px;width:calc(100% - 32px);margin:48px auto"><h1>Name your hostel</h1>
   <input id="hn" placeholder="Hostel name"><br><br><button onclick="createHostel()">Create</button></div>`;
 }
 async function createHostel(){
@@ -113,26 +152,42 @@ async function load(){
   const e = await sb.from("expenses").select("*").order("spent_on",{ascending:false}); expenses = e.data || [];
 }
 
-function render(){
+const LOGO = '<svg viewBox="0 0 48 48" width="38" height="38" aria-hidden="true" style="flex:0 0 auto"><rect width="48" height="48" rx="11" fill="#2D4F4A"/><path d="M11.5 17.8 24 8.2l12.5 9.6" fill="none" stroke="#fff" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.6 21.6v16.8M32.4 21.6v16.8M15.6 29.8h16.8" stroke="#fff" stroke-width="3.3" stroke-linecap="round"/></svg>';
+const ICON = {
+  dues:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9.5 8.5h5M9.5 12.5h5"/>',
+  students:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M18 14.3c1.8.8 3 2.6 3 4.7"/>',
+  rooms:'<path d="M3 19V6M3 15h18v4M21 15v-2.5a2.5 2.5 0 0 0-2.5-2.5H11v5"/><circle cx="7" cy="11.5" r="1.6"/>',
+  expenses:'<path d="M12 3v18"/><path d="M16.5 7.5c0-1.7-2-3-4.5-3S7.5 5.8 7.5 7.5 9.5 10.2 12 11s4.5 1.8 4.5 3.5-2 3-4.5 3-4.5-1.3-4.5-3"/>',
+  report:'<path d="M5 20v-9M12 20V4M19 20v-6"/>'
+};
+const NAV = [["dues","Dues"],["students","Students"],["rooms","Rooms"],["expenses","Expenses"],["report","Report"]];
+function curNav(){ return (tab=="pending"||tab=="all") ? "dues" : tab; }
+function go(k){ tab = k=="dues" ? "pending" : k; render(); }
+function hero(){
   const pend = dues.filter(d=>!d.paid);
-  const total = pend.reduce((a,d)=>a+Number(d.amount),0);
-  app.innerHTML = `<div class="top"><h1>${esc(hostel.name)}</h1><button class="l" onclick="logout()">Logout</button></div>
-  ${banner()}<div class="card"><div class="muted">Total pending</div><div class="big">Rs ${total.toLocaleString()}</div>
-  <div class="muted">${pend.length} unpaid dues, ${students.filter(s=>s.active).length} active students</div></div>
-  <div class="tabs">
-    <button class="${tab=="pending"?"on":""}" onclick="tab='pending';render()">Pending</button>
-    <button class="${tab=="students"?"on":""}" onclick="tab='students';render()">Students</button>
-    <button class="${tab=="all"?"on":""}" onclick="tab='all';render()">All dues</button>
-    <button class="${tab=="rooms"?"on":""}" onclick="tab='rooms';render()">Rooms</button>
-    <button class="${tab=="expenses"?"on":""}" onclick="tab='expenses';render()">Expenses</button>
-    <button class="${tab=="report"?"on":""}" onclick="tab='report';render()">Report</button></div>
-  <div id="body"></div>`;
+  const cm = new Date().toISOString().slice(0,7);
+  const md = dues.filter(d=>d.month==cm);
+  const billed = sum(md.map(d=>d.amount)), got = sum(md.filter(d=>d.paid).map(d=>d.amount));
+  const pct = billed ? Math.round(got/billed*100) : 0;
+  const act = students.filter(s=>s.active).length;
+  return `<section class="hero"><div class="lbl">Outstanding</div><div class="fig">${money(sum(pend.map(d=>d.amount)))}</div>
+  ${billed ? `<div class="meter"><i style="width:${pct}%"></i></div><div class="sub"><span>${cm}: ${money(got)} of ${money(billed)} collected (${pct}%)</span><span>${pend.length} unpaid</span><span>${act} active students</span></div>`
+  : `<div class="sub"><span>${pend.length} unpaid</span><span>${act} active students</span><span>No dues created for ${cm} yet.</span></div>`}</section>`;
+}
+function seg(){ return `<div class="seg"><button class="${tab=="pending"?"on":""}" onclick="tab='pending';render()">Pending</button><button class="${tab=="all"?"on":""}" onclick="tab='all';render()">All dues</button></div>`; }
+function render(){
+  const k = curNav();
+  app.innerHTML = `<div class="shell"><nav class="side"><div class="brand">${LOGO}<span>${esc(hostel.name)}</span></div>
+  <div class="nav">${NAV.map(([id,l])=>`<button class="${k==id?"on":""}" onclick="go('${id}')"><svg viewBox="0 0 24 24">${ICON[id]}</svg>${l}</button>`).join("")}</div>
+  <div class="foot"><button class="l" onclick="logout()" style="width:100%">Sign out</button></div></nav>
+  <main class="main"><div class="mtop">${LOGO}<b>${esc(hostel.name)}</b><button class="l" onclick="logout()">Sign out</button></div>
+  ${banner()}<div id="body"></div></main></div>`;
   const b = document.getElementById("body");
   if(tab=="students") b.innerHTML = studentsView();
   else if(tab=="rooms") b.innerHTML = roomsView();
   else if(tab=="expenses") b.innerHTML = expensesView();
   else if(tab=="report") b.innerHTML = reportView();
-  else b.innerHTML = duesView(tab=="pending");
+  else b.innerHTML = hero() + seg() + duesView(tab=="pending");
 }
 
 function studentsView(){
@@ -144,7 +199,7 @@ function studentsView(){
   ${students.map(s=>`<div class="item"><div><b>${esc(s.name)}</b> ${s.active?"":'<span class="muted">(left)</span>'}
   <div class="muted">Room ${esc(s.room)} | ${esc(s.phone)} | Rs ${s.monthly_fee}</div></div>
   <div class="row"><button class="l" onclick="toggleActive('${s.id}',${!s.active})">${s.active?"Mark left":"Reactivate"}</button>
-  <button class="r" onclick="delStudent('${s.id}')">Delete</button></div></div>`).join("") || '<p class="muted">No students yet.</p>'}</div>`;
+  <button class="r" onclick="delStudent('${s.id}')">Delete</button></div></div>`).join("") || '<p class="muted">No students yet. Add your first student above.</p>'}</div>`;
 }
 async function addStudent(){ if(locked) return lockMsg();
   const name = val("sn"); if(!name) return alert("Enter a name");
@@ -157,14 +212,14 @@ async function delStudent(id){ if(locked) return lockMsg(); if(!confirm("Delete 
 
 function duesView(onlyPending){
   const list = onlyPending ? dues.filter(d=>!d.paid) : dues;
-  return `<div class="card"><h2>Generate monthly dues</h2><div class="row">
-  <input id="mo" type="month" value="${month}"><button onclick="genDues()">Create for all active students</button></div></div>
+  return `<div class="card"><h2>Create dues for a month</h2><div class="row">
+  <input id="mo" type="month" value="${month}"><button onclick="genDues()">Create dues</button></div></div>
   <div class="card"><h2>${onlyPending?"Pending dues":"All dues"} (${list.length})</h2>
   ${list.map(d=>`<div class="item"><div><b>${esc(d.students?.name)}</b> <span class="tag ${d.paid?"d":"p"}">${d.paid?"Paid":"Pending"}</span>
   <div class="muted">${d.month} | Room ${esc(d.students?.room)} | Rs ${d.amount}</div></div>
   <div class="row">${d.paid?`<button onclick="receipt('${d.id}')">Receipt</button><button class="l" onclick="setPaid('${d.id}',false)">Undo</button>`:
   `<button class="g" onclick="setPaid('${d.id}',true)">Mark paid</button>
-  <button onclick="remind('${d.id}')">WhatsApp</button>`}</div></div>`).join("") || '<p class="muted">Nothing here.</p>'}</div>`;
+  <button onclick="remind('${d.id}')">WhatsApp</button>`}</div></div>`).join("") || '<p class="muted">Nothing to show yet. Create dues for a month above.</p>'}</div>`;
 }
 async function genDues(){ if(locked) return lockMsg();
   month = val("mo"); if(!month) return;
@@ -209,7 +264,7 @@ function roomsView(){
   ${rooms.map(r=>{ const n = students.filter(s=>s.active && s.room==r.name).length;
     return `<div class="item"><div><b>${esc(r.name)}</b> <span class="tag ${n>=r.capacity?"p":"d"}">${n}/${r.capacity} beds</span>
     <div class="muted">${students.filter(s=>s.active && s.room==r.name).map(s=>esc(s.name)).join(", ") || "Empty"}</div></div>
-    <button class="r" onclick="delRoom('${r.id}')">Delete</button></div>`; }).join("") || '<p class="muted">No rooms yet.</p>'}</div>`;
+    <button class="r" onclick="delRoom('${r.id}')">Delete</button></div>`; }).join("") || '<p class="muted">No rooms yet. Add a room above, then pick it when adding students.</p>'}</div>`;
 }
 async function addRoom(){
   if(locked) return lockMsg();
