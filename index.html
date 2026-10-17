@@ -217,7 +217,7 @@ function duesView(onlyPending){
   <div class="card"><h2>${onlyPending?"Pending dues":"All dues"} (${list.length})</h2>
   ${list.map(d=>`<div class="item"><div><b>${esc(d.students?.name)}</b> <span class="tag ${d.paid?"d":"p"}">${d.paid?"Paid":"Pending"}</span>
   <div class="muted">${d.month} | Room ${esc(d.students?.room)} | Rs ${d.amount}</div></div>
-  <div class="row">${d.paid?`<button onclick="receipt('${d.id}')">Receipt</button><button class="l" onclick="setPaid('${d.id}',false)">Undo</button>`:
+  <div class="row">${d.paid?`<button onclick="receipt('${d.id}')">Receipt</button><button class="l" onclick="printReceipt('${d.id}')">PDF</button><button class="l" onclick="setPaid('${d.id}',false)">Undo</button>`:
   `<button class="g" onclick="setPaid('${d.id}',true)">Mark paid</button>
   <button onclick="remind('${d.id}')">WhatsApp</button>`}</div></div>`).join("") || '<p class="muted">Nothing to show yet. Create dues for a month above.</p>'}</div>`;
 }
@@ -306,7 +306,62 @@ function reportView(){
   <div class="item"><span>Still pending (this month's dues)</span><b style="color:var(--bad)">${money(sum(md.filter(d=>!d.paid).map(d=>d.amount)))}</b></div>
   <div class="item"><span>Expenses</span><b>${money(spent)}</b></div>
   <div class="item"><span><b>Net profit</b></span><b style="color:${net>=0?"var(--ok)":"var(--bad)"}">${money(net)}</b></div></div>
-  <div class="card"><h2>Expenses by category</h2>${Object.entries(by).map(([k,v])=>`<div class="item"><span>${esc(k)}</span><b>${money(v)}</b></div>`).join("") || '<p class="muted">No expenses.</p>'}</div>`;
+  <div class="card"><h2>Expenses by category</h2>${Object.entries(by).map(([k,v])=>`<div class="item"><span>${esc(k)}</span><b>${money(v)}</b></div>`).join("") || '<p class="muted">No expenses.</p>'}</div>
+  <div class="card"><h2>Export to Excel</h2><p class="muted" style="margin-top:0">Downloads a file that opens in Excel or Google Sheets.</p>
+  <div class="row"><button class="l" onclick="exportStudents()">Students</button><button class="l" onclick="exportDues('${rmonth}')">Dues for ${rmonth}</button>
+  <button class="l" onclick="exportDues()">All dues</button><button class="l" onclick="exportExpenses('${rmonth}')">Expenses for ${rmonth}</button></div></div>`;
+}
+
+// ---- export to Excel (CSV) ----
+function cell(v){
+  let s = String(v ?? "");
+  if(/^[=@+\-]/.test(s) && !/^[+\-]?\d[\d\s.\-]*$/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g,'""') + '"';
+}
+const phoneCell = p => /^\d+$/.test(p||"") ? '="' + p + '"' : cell(p);   // keeps the leading 0 in Excel
+function download(name, head, rows){
+  const lines = [head.map(cell).join(",")].concat(rows.map(r => r.map(c => c && c.__raw ? c.__raw : cell(c)).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\r\n")], { type:"text/csv;charset=utf-8" }));
+  a.download = name + ".csv"; document.body.appendChild(a); a.click(); a.remove();
+}
+const raw = s => ({ __raw: s });
+function exportStudents(){
+  download("students", ["Name","Phone","Room","Monthly fee","Status","Joined"],
+    students.map(s => [s.name, raw(phoneCell(s.phone)), s.room, s.monthly_fee, s.active ? "Active" : "Left", (s.created_at||"").slice(0,10)]));
+}
+function exportDues(m){
+  const list = m ? dues.filter(d => d.month == m) : dues;
+  download(m ? "dues-" + m : "dues-all", ["Month","Student","Room","Phone","Amount","Status","Paid on"],
+    list.map(d => [d.month, d.students?.name, d.students?.room, raw(phoneCell(d.students?.phone)), d.amount, d.paid ? "Paid" : "Pending", d.paid_on || ""]));
+}
+function exportExpenses(m){
+  download("expenses-" + m, ["Date","Category","Amount","Note"],
+    expenses.filter(e => e.spent_on.slice(0,7) == m).map(e => [e.spent_on, e.category, e.amount, e.note]));
+}
+
+// ---- printable receipt (Print dialog, then "Save as PDF") ----
+function printReceipt(id){
+  const d = dues.find(x => x.id == id), s = d.students || {};
+  const w = window.open("", "_blank");
+  if(!w) return alert("Allow pop-ups for this site to print the receipt.");
+  const no = "R-" + d.id.slice(0,6).toUpperCase();
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Receipt ${no}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>@page{size:A5;margin:12mm}*{box-sizing:border-box}body{font-family:Manrope,system-ui,sans-serif;color:#1B1F1E;margin:0;padding:24px;max-width:560px;margin:0 auto}
+  .hd{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:2px solid #2D4F4A}.hd b{font-size:20px;display:block}.hd span{color:#68706E;font-size:13px}
+  .amt{margin:24px 0 8px;font-size:40px;font-weight:800;letter-spacing:-.02em}.paid{display:inline-block;padding:3px 12px;border:1.5px solid #3E7A5A;color:#3E7A5A;border-radius:99px;font-weight:700;font-size:13px}
+  table{width:100%;border-collapse:collapse;margin-top:20px}td{padding:10px 0;border-bottom:1px solid #E1E4E2;font-size:14px}td:first-child{color:#68706E;width:40%}
+  .sig{margin-top:56px;display:flex;justify-content:space-between;font-size:12px;color:#68706E}.sig div{border-top:1px solid #1B1F1E;padding-top:6px;width:44%;text-align:center}
+  .ft{margin-top:28px;text-align:center;color:#68706E;font-size:12px}</style></head><body>
+  <div class="hd">${LOGO}<div><b>${esc(hostel.name)}</b><span>Payment receipt</span></div></div>
+  <div class="amt">${money(d.amount)}</div><span class="paid">PAID</span>
+  <table><tr><td>Receipt no.</td><td>${no}</td></tr><tr><td>Date paid</td><td>${esc(d.paid_on || "")}</td></tr>
+  <tr><td>Student</td><td>${esc(s.name)}</td></tr><tr><td>Room</td><td>${esc(s.room || "-")}</td></tr><tr><td>For month</td><td>${esc(d.month)}</td></tr></table>
+  <div class="sig"><div>Received by</div><div>Student signature</div></div>
+  <p class="ft">Thank you.</p>
+  <script>onload=function(){setTimeout(function(){print()},400)}<\/script></body></html>`);
+  w.document.close();
 }
 
 // ---- live updates: no reload needed ----
