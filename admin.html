@@ -86,7 +86,7 @@ function render(){
   const t = today();
   const exp = rows.filter(r=>!r.paid_until || r.paid_until < t).length;
   const soon = rows.filter(r=>status(r)[1]=="s").length;
-  const list = rows.filter(r=>(r.name+" "+r.owner_email).toLowerCase().includes(q.toLowerCase()));
+  const list = rows.filter(r=>(r.name+" "+(r.branch||"")+" "+r.owner_email).toLowerCase().includes(q.toLowerCase()));
   app.innerHTML = `<div class="top"><h1>Admin</h1><button class="l" onclick="logout()">Sign out</button></div>
   <div class="stats"><div><b>${rows.length}</b>Hostels</div><div><b>${rows.length-exp}</b>Active</div>
   <div><b>${soon}</b>Ending soon</div><div><b>${exp}</b>Expired</div></div>
@@ -95,10 +95,10 @@ function render(){
   renderList();
 }
 function renderList(){
-  const list = rows.filter(r=>(r.name+" "+r.owner_email).toLowerCase().includes(q.toLowerCase()));
+  const list = rows.filter(r=>(r.name+" "+(r.branch||"")+" "+r.owner_email).toLowerCase().includes(q.toLowerCase()));
   document.getElementById("list").innerHTML = list.map(r=>{
     const [label,cls] = status(r);
-    return `<div class="card"><div class="h"><div><b>${esc(r.name)}</b> <span class="tag ${cls}">${label}</span>
+    return `<div class="card"><div class="h"><div><b>${esc(r.name)}${r.branch?" - "+esc(r.branch):""}</b> <span class="tag ${cls}">${label}</span>
     <div class="muted">${esc(r.owner_email)} | joined ${r.created_at.slice(0,10)}</div>
     <div class="muted">${r.students} students | Rs ${Number(r.pending).toLocaleString()} pending | paid until <b>${r.paid_until||"-"}</b></div>
     ${r.note?`<div class="muted">Note: ${esc(r.note)}</div>`:""}</div></div><br>
